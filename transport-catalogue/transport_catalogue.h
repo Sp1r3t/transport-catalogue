@@ -8,12 +8,13 @@
 #include <string>
 #include <algorithm>
 #include <unordered_map>
+#include <unordered_set>
 
 namespace info {
     struct BusStop {
         std::string name;
         Coordinates coordinates;
-        std::vector<std::string> buses;
+        std::unordered_set<std::string> buses;
     };
 
     struct BusInfo {
@@ -23,14 +24,29 @@ namespace info {
 }
 
 namespace transport_catalogue {
+    struct BusStat {
+        std::string name;
+        size_t stops_count = 0;
+        size_t unique_stops_count = 0;
+        double route_length = 0.0;
+        bool found = false;
+    };
+
+    struct StopStat {
+        std::string name;
+        std::vector<std::string> buses;
+        bool found = false;
+    };
+
     class TransportCatalogue {
     public:
         void AddStop(std::string_view name, Coordinates coordinates);
-        info::BusStop* FindStop(std::string_view name) const;
+        const info::BusStop* FindStop(std::string_view name) const;
+        info::BusStop* FindStop(std::string_view name);
         void AddBus(std::string_view name, const std::vector<std::string_view>& stops);
-        info::BusInfo* FindBus(std::string_view name) const;
-        std::string GetBusInfo(std::string_view request_name) const;
-        std::string GetStopInfo(std::string_view request_name) const;
+        const info::BusInfo* FindBus(std::string_view name) const;
+        BusStat GetBusInfo(std::string_view request_name) const;
+        StopStat GetStopInfo(std::string_view request_name) const;
     private:
         std::deque<info::BusStop> stops_;
         std::deque<info::BusInfo> buses_;

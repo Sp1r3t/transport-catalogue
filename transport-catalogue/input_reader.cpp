@@ -115,3 +115,14 @@ void InputReader::ApplyCommands(transport_catalogue::TransportCatalogue& catalog
         }
     }
 }
+
+void InputReader::ReadBaseRequests(std::istream& in, transport_catalogue::TransportCatalogue& catalogue) {
+    int base_request_count = 0;
+    in >> base_request_count >> std::ws;
+    for (int i = 0; i < base_request_count; ++i) {
+        std::string line;
+        std::getline(in, line);
+        ParseLine(line);
+    }
+    ApplyCommands(catalogue);
+}

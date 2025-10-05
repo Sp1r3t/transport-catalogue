@@ -6,5 +6,6 @@
 
 #include "transport_catalogue.h"
 
-void ParseAndPrintStat(const transport_catalogue::TransportCatalogue& tansport_catalogue, std::string_view request,
-                       std::ostream& output);
+void ParseAndPrintStat(const transport_catalogue::TransportCatalogue&  transport_catalogue, std::string_view request, std::ostream& output);
+
+void ProcessStatRequests(std::istream& in, std::ostream& out, const transport_catalogue::TransportCatalogue& transport_catalogue);

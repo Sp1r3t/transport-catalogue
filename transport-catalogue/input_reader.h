@@ -2,12 +2,12 @@
 #include <string>
 #include <string_view>
 #include <vector>
+#include <istream>
 
 #include "geo.h"
 #include "transport_catalogue.h"
 
 struct CommandDescription {
-    // Определяет, задана ли команда (поле command непустое)
     explicit operator bool() const {
         return !command.empty();
     }
@@ -16,9 +16,9 @@ struct CommandDescription {
         return !operator bool();
     }
 
-    std::string command;      // Название команды
-    std::string id;           // id маршрута или остановки
-    std::string description;  // Параметры команды
+    std::string command;
+    std::string id;
+    std::string description;
 };
 
 class InputReader {
@@ -32,6 +32,9 @@ public:
      * Наполняет данными транспортный справочник, используя команды из commands_
      */
     void ApplyCommands(transport_catalogue::TransportCatalogue& catalogue) const;
+
+    void ReadBaseRequests(std::istream& in, transport_catalogue::TransportCatalogue& catalogue);
+
 private:
     std::vector<CommandDescription> commands_;
 };
