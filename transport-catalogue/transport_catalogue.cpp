@@ -20,7 +20,8 @@ namespace transport_catalogue {
         }
         return nullptr;
     }
-
+    //Это перегрузка для FindStop и она специально возращает не конcтанту, 
+    //так как в строке 41 я делаю insert и const мне этому помешает.
     info::BusStop* TC::FindStop(std::string_view name) {
         auto it = stopname_to_stop_.find(name);
         if (it != stopname_to_stop_.end()) {
@@ -46,33 +47,22 @@ namespace transport_catalogue {
     }
 
 
-     const info::BusInfo* TC::FindBus(std::string_view name) const {
+    const info::BusInfo* TC::FindBus(std::string_view name) const {
         auto it = busname_to_bus_.find(name);
         if (it != busname_to_bus_.end()) {
             return it->second;
         }
-        const std::string_view prefix = "Bus ";
-        if (name.size() > prefix.size() && name.substr(0, prefix.size()) == prefix) {
-            auto without = name.substr(prefix.size());
-            auto it = busname_to_bus_.find(without);
-            if (it != busname_to_bus_.end()) {
-                return it->second;
-            }
-        }
         return nullptr;
     }
 
-    BusStat TC::GetBusInfo(std::string_view request_name) const {
-        BusStat stat;
-        stat.name = std::string(request_name);
-
+    std::optional<BusStat> TC::GetBusInfo(std::string_view request_name) const {
         const info::BusInfo* bus = FindBus(request_name);
         if (!bus) {
-            stat.found = false;
-            return stat;
+            return std::nullopt;
         }
 
-        stat.found = true;
+        BusStat stat;
+        stat.name = std::string(request_name);
         stat.stops_count = bus->stops.size();
 
         std::unordered_set<std::string_view> unique(bus->stops.begin(), bus->stops.end());
@@ -91,18 +81,16 @@ namespace transport_catalogue {
         return stat;
     }
 
-    StopStat TC::GetStopInfo(std::string_view request_name) const {
-        StopStat stat;
-        stat.name = std::string(request_name);
 
+    std::optional<StopStat> TC::GetStopInfo(std::string_view request_name) const {
         const info::BusStop* stop = FindStop(request_name);
         if (!stop) {
-            stat.found = false;
-            return stat;
+            return std::nullopt;
         }
 
-        stat.found = true;
-        stat.buses.assign(stop->buses.begin(), stop->buses.end());
+        StopStat stat;
+        stat.name = stop->name;
+        stat.buses = &stop->buses;
         return stat;
     }
 }

@@ -7,6 +7,8 @@
 #include <deque>
 #include <string>
 #include <algorithm>
+#include <optional>
+#include <set>
 #include <unordered_map>
 #include <unordered_set>
 
@@ -14,7 +16,7 @@ namespace info {
     struct BusStop {
         std::string name;
         Coordinates coordinates;
-        std::unordered_set<std::string> buses;
+        std::set<std::string> buses;
     };
 
     struct BusInfo {
@@ -29,13 +31,11 @@ namespace transport_catalogue {
         size_t stops_count = 0;
         size_t unique_stops_count = 0;
         double route_length = 0.0;
-        bool found = false;
     };
 
     struct StopStat {
         std::string name;
-        std::vector<std::string> buses;
-        bool found = false;
+        const std::set<std::string>* buses = nullptr;
     };
 
     class TransportCatalogue {
@@ -45,8 +45,8 @@ namespace transport_catalogue {
         info::BusStop* FindStop(std::string_view name);
         void AddBus(std::string_view name, const std::vector<std::string_view>& stops);
         const info::BusInfo* FindBus(std::string_view name) const;
-        BusStat GetBusInfo(std::string_view request_name) const;
-        StopStat GetStopInfo(std::string_view request_name) const;
+        std::optional <BusStat> GetBusInfo(std::string_view request_name) const;
+        std::optional<StopStat> GetStopInfo(std::string_view request_name) const;
     private:
         std::deque<info::BusStop> stops_;
         std::deque<info::BusInfo> buses_;
