@@ -13,6 +13,7 @@
 #include <unordered_set>
 
 namespace info {
+
     struct BusStop {
         std::string name;
         Coordinates coordinates;
@@ -23,6 +24,14 @@ namespace info {
         std::string name;
         std::vector<std::string> stops;
     };
+
+    struct StopPairHasher {
+        std::size_t operator()(const std::pair<const BusStop*, const BusStop*>& p) const noexcept {
+            auto h1 = std::hash<const void*>{}(p.first);
+            auto h2 = std::hash<const void*>{}(p.second);
+            return h1 * 31 + h2 * 17;
+        }
+    };
 }
 
 namespace transport_catalogue {
@@ -31,6 +40,7 @@ namespace transport_catalogue {
         size_t stops_count = 0;
         size_t unique_stops_count = 0;
         double route_length = 0.0;
+        double curvature = 0.0;
     };
 
     struct StopStat {
@@ -40,16 +50,19 @@ namespace transport_catalogue {
 
     class TransportCatalogue {
     public:
-        void AddStop(std::string_view name, Coordinates coordinates);
+        void AddStop(std::string_view name, Coordinates coordinates, const std::vector<std::pair<std::string, int>>& distances);
         const info::BusStop* FindStop(std::string_view name) const;
         info::BusStop* FindStop(std::string_view name);
         void AddBus(std::string_view name, const std::vector<std::string_view>& stops);
         const info::BusInfo* FindBus(std::string_view name) const;
         std::optional <BusStat> GetBusInfo(std::string_view request_name) const;
         std::optional<StopStat> GetStopInfo(std::string_view request_name) const;
+        void BuildDistanceIndex();
     private:
         std::deque<info::BusStop> stops_;
         std::deque<info::BusInfo> buses_;
+        std::deque<std::tuple<std::string, std::string, int>> pending_distances_;
+        std::unordered_map<std::pair<const info::BusStop*, const info::BusStop*>, int, info::StopPairHasher> distance_between_stops_;
         std::unordered_map<std::string_view, info::BusStop*> stopname_to_stop_;
         std::unordered_map<std::string_view, info::BusInfo*> busname_to_bus_;
     };

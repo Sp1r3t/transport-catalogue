@@ -75,6 +75,40 @@ std::vector<std::string_view> ParseRoute(std::string_view route) {
     return results;
 }
 
+static std::vector<std::pair<std::string, int>> ParseDistance(std::string_view line) {
+    std::vector<std::pair<std::string, int>> result;
+
+    size_t start = line.find_first_not_of(", ");
+    if (start == std::string_view::npos) {
+        return result;
+    }
+    line.remove_prefix(start);
+
+    auto parts = Split(line, ',');
+    for (auto part : parts) {
+        part = Trim(part);
+        if (part.empty()) continue;
+
+        size_t m_pos = part.find('m');
+        if (m_pos == std::string_view::npos) continue;
+
+        auto num_sv = Trim(part.substr(0, m_pos));
+        if (num_sv.empty()) continue;
+
+        int distance = std::stoi(std::string(num_sv));
+
+        size_t to_pos = part.find("to", m_pos);
+        if (to_pos == std::string_view::npos) continue;
+
+        auto stop_name_sv = Trim(part.substr(to_pos + 2));
+        if (!stop_name_sv.empty()) {
+            result.emplace_back(std::string(stop_name_sv), distance);
+        }
+    }
+
+    return result;
+}
+
 CommandDescription ParseCommandDescription(std::string_view line) {
     auto colon_pos = line.find(':');
     if (colon_pos == line.npos) {
@@ -91,9 +125,21 @@ CommandDescription ParseCommandDescription(std::string_view line) {
         return {};
     }
 
+    size_t first_pos = line.find(',');
+    if (first_pos != std::string::npos) {
+        size_t second_pos = line.find(',', first_pos + 1);
+        if (second_pos != std::string::npos) {
+            return {std::string(line.substr(0, space_pos)),
+                    std::string(line.substr(not_space, colon_pos - not_space)),
+                    std::string(line.substr(colon_pos + 1)),
+                    ParseDistance(std::string(line.substr(second_pos + 2)))};
+        }
+    }
+
     return {std::string(line.substr(0, space_pos)),
             std::string(line.substr(not_space, colon_pos - not_space)),
-            std::string(line.substr(colon_pos + 1))};
+            std::string(line.substr(colon_pos + 1)),
+            {}};
 }
 
 void InputReader::ParseLine(std::string_view line) {
@@ -106,14 +152,16 @@ void InputReader::ParseLine(std::string_view line) {
 void InputReader::ApplyCommands(transport_catalogue::TransportCatalogue& catalogue) const {
     for (const CommandDescription& obj : commands_) {
         if (obj.command == "Stop") {
-            catalogue.AddStop(obj.id, ParseCoordinates(obj.description));
+            catalogue.AddStop(obj.id, ParseCoordinates(obj.coordinates), const_cast<std::vector<std::pair<std::string,int>>&>(obj.distances));
         }
     }
     for (const CommandDescription& obj : commands_) {
         if (obj.command == "Bus") {
-            catalogue.AddBus(obj.id, ParseRoute(obj.description));
+            catalogue.AddBus(obj.id, ParseRoute(obj.coordinates));
         }
     }
+
+    catalogue.BuildDistanceIndex();
 }
 
 void InputReader::ReadBaseRequests(std::istream& in, transport_catalogue::TransportCatalogue& catalogue) {

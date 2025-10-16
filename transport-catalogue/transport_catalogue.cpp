@@ -8,9 +8,14 @@
 namespace transport_catalogue {
     using TC = TransportCatalogue;
 
-    void TC::AddStop(std::string_view name, Coordinates coordinates) {
-        stops_.push_back({ std::string(name), coordinates , {}});
-        stopname_to_stop_[stops_.back().name] = &stops_.back();
+    void TC::AddStop(std::string_view name, Coordinates coordinates, const std::vector<std::pair<std::string, int>>& distances) {
+        stops_.push_back({ std::string(name), coordinates, {} });
+        info::BusStop* stop_ptr = &stops_.back();
+        stopname_to_stop_[stop_ptr->name] = stop_ptr;
+
+        for (const auto& [to_name, dist] : distances) {
+            pending_distances_.push_back({ stop_ptr->name, to_name, dist });
+        }
     }
 
     const info::BusStop* TC::FindStop(std::string_view name) const {
@@ -20,8 +25,7 @@ namespace transport_catalogue {
         }
         return nullptr;
     }
-    //Это перегрузка для FindStop и она специально возращает не конcтанту, 
-    //так как в строке 41 я делаю insert и const мне этому помешает.
+    
     info::BusStop* TC::FindStop(std::string_view name) {
         auto it = stopname_to_stop_.find(name);
         if (it != stopname_to_stop_.end()) {
@@ -69,14 +73,26 @@ namespace transport_catalogue {
         stat.unique_stops_count = unique.size();
 
         double route_length = 0.0;
+        double geography_length = 0.0;
         for (size_t i = 0; i + 1 < bus->stops.size(); ++i) {
             const auto* a = FindStop(bus->stops[i]);
             const auto* b = FindStop(bus->stops[i + 1]);
             if (a && b) {
                 route_length += ComputeDistance(a->coordinates, b->coordinates);
+                auto key = std::make_pair(a, b);
+                auto it = distance_between_stops_.find(key);
+                if (it != distance_between_stops_.end()) {
+                    geography_length += it->second;
+                } else {
+                    auto it2 = distance_between_stops_.find({b, a});
+                    if (it2 != distance_between_stops_.end()) {
+                        geography_length += it2->second;
+                    }
+                }
             }
         }
-        stat.route_length = route_length;
+        stat.route_length = geography_length;
+        stat.curvature = geography_length / route_length;
 
         return stat;
     }
@@ -92,5 +108,15 @@ namespace transport_catalogue {
         stat.name = stop->name;
         stat.buses = &stop->buses;
         return stat;
+    }
+
+    void TC::BuildDistanceIndex() {
+        for (const auto& [from_name, to_name, dist] : pending_distances_) {
+            info::BusStop* from = FindStop(from_name);
+            info::BusStop* to = FindStop(to_name);
+            if (from && to) {
+                distance_between_stops_[{from, to}] = dist;
+            }
+        }
     }
 }

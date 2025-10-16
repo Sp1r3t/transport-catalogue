@@ -18,7 +18,8 @@ struct CommandDescription {
 
     std::string command;
     std::string id;
-    std::string description;
+    std::string coordinates;
+    std::vector<std::pair<std::string, int>> distances;
 };
 
 class InputReader {
@@ -34,7 +35,6 @@ public:
     void ApplyCommands(transport_catalogue::TransportCatalogue& catalogue) const;
 
     void ReadBaseRequests(std::istream& in, transport_catalogue::TransportCatalogue& catalogue);
-
 private:
     std::vector<CommandDescription> commands_;
 };

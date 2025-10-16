@@ -27,7 +27,8 @@ void ParseAndPrintStat( const transport_catalogue::TransportCatalogue& catalogue
         output << "Bus " << bus_info.name
             << ": " << bus_info.stops_count << " stops on route, "
             << bus_info.unique_stops_count << " unique stops, "
-            << std::setprecision(6) << bus_info.route_length << " route length\n";
+            << std::setprecision(6) << bus_info.route_length << " route length, "
+            << bus_info.curvature << " curvature\n";
     }
     else if (type == "Stop") {
         auto stop_info_opt = catalogue.GetStopInfo(name);
