@@ -75,8 +75,8 @@ std::vector<std::string_view> ParseRoute(std::string_view route) {
     return results;
 }
 
-static std::vector<std::pair<std::string, int>> ParseDistance(std::string_view line) {
-    std::vector<std::pair<std::string, int>> result;
+static std::vector<info::Distance> ParseDistance(std::string_view line) {
+    std::vector<info::Distance> result;
 
     size_t start = line.find_first_not_of(", ");
     if (start == std::string_view::npos) {
@@ -102,7 +102,7 @@ static std::vector<std::pair<std::string, int>> ParseDistance(std::string_view l
 
         auto stop_name_sv = Trim(part.substr(to_pos + 2));
         if (!stop_name_sv.empty()) {
-            result.emplace_back(std::string(stop_name_sv), distance);
+            result.push_back({std::string(stop_name_sv), distance});
         }
     }
 
@@ -152,7 +152,8 @@ void InputReader::ParseLine(std::string_view line) {
 void InputReader::ApplyCommands(transport_catalogue::TransportCatalogue& catalogue) const {
     for (const CommandDescription& obj : commands_) {
         if (obj.command == "Stop") {
-            catalogue.AddStop(obj.id, ParseCoordinates(obj.coordinates), const_cast<std::vector<std::pair<std::string,int>>&>(obj.distances));
+            catalogue.AddStop(obj.id, ParseCoordinates(obj.coordinates));
+            catalogue.AddDistance(obj.id, const_cast<std::vector<info::Distance>&>(obj.distances));
         }
     }
     for (const CommandDescription& obj : commands_) {

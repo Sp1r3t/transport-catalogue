@@ -19,7 +19,7 @@ struct CommandDescription {
     std::string command;
     std::string id;
     std::string coordinates;
-    std::vector<std::pair<std::string, int>> distances;
+    std::vector<info::Distance> distances;
 };
 
 class InputReader {

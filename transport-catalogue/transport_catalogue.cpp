@@ -8,13 +8,15 @@
 namespace transport_catalogue {
     using TC = TransportCatalogue;
 
-    void TC::AddStop(std::string_view name, Coordinates coordinates, const std::vector<std::pair<std::string, int>>& distances) {
+    void TC::AddStop(std::string_view name, Coordinates coordinates) {
         stops_.push_back({ std::string(name), coordinates, {} });
         info::BusStop* stop_ptr = &stops_.back();
         stopname_to_stop_[stop_ptr->name] = stop_ptr;
+    }
 
+    void TC::AddDistance(std::string_view name, const std::vector<info::Distance>& distances){
         for (const auto& [to_name, dist] : distances) {
-            pending_distances_.push_back({ stop_ptr->name, to_name, dist });
+            pending_distances_.push_back({ std::string(name), to_name, dist });
         }
     }
 

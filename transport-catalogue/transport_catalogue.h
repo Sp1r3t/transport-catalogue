@@ -25,6 +25,11 @@ namespace info {
         std::vector<std::string> stops;
     };
 
+    struct Distance {
+        std::string name;
+        int length;
+    };
+
     struct StopPairHasher {
         std::size_t operator()(const std::pair<const BusStop*, const BusStop*>& p) const noexcept {
             auto h1 = std::hash<const void*>{}(p.first);
@@ -50,7 +55,8 @@ namespace transport_catalogue {
 
     class TransportCatalogue {
     public:
-        void AddStop(std::string_view name, Coordinates coordinates, const std::vector<std::pair<std::string, int>>& distances);
+        void AddStop(std::string_view name, Coordinates coordinates);
+        void AddDistance(std::string_view name, const std::vector<info::Distance>& distances);
         const info::BusStop* FindStop(std::string_view name) const;
         info::BusStop* FindStop(std::string_view name);
         void AddBus(std::string_view name, const std::vector<std::string_view>& stops);
@@ -61,6 +67,7 @@ namespace transport_catalogue {
     private:
         std::deque<info::BusStop> stops_;
         std::deque<info::BusInfo> buses_;
+        std::deque<info::Distance> distance_;
         std::deque<std::tuple<std::string, std::string, int>> pending_distances_;
         std::unordered_map<std::pair<const info::BusStop*, const info::BusStop*>, int, info::StopPairHasher> distance_between_stops_;
         std::unordered_map<std::string_view, info::BusStop*> stopname_to_stop_;
