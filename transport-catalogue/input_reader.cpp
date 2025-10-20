@@ -153,7 +153,9 @@ void InputReader::ApplyCommands(transport_catalogue::TransportCatalogue& catalog
     for (const CommandDescription& obj : commands_) {
         if (obj.command == "Stop") {
             catalogue.AddStop(obj.id, ParseCoordinates(obj.coordinates));
-            catalogue.AddDistance(obj.id, const_cast<std::vector<info::Distance>&>(obj.distances));
+            for (const auto& info: obj.distances) {
+                catalogue.AddDistance(obj.id, info.name, info.length);
+            }
         }
     }
     for (const CommandDescription& obj : commands_) {

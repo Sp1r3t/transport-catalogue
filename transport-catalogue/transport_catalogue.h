@@ -23,6 +23,7 @@ namespace info {
     struct BusInfo {
         std::string name;
         std::vector<std::string> stops;
+        const std::set<std::string>* buses;
     };
 
     struct Distance {
@@ -48,21 +49,16 @@ namespace transport_catalogue {
         double curvature = 0.0;
     };
 
-    struct StopStat {
-        std::string name;
-        const std::set<std::string>* buses = nullptr;
-    };
-
     class TransportCatalogue {
     public:
         void AddStop(std::string_view name, Coordinates coordinates);
-        void AddDistance(std::string_view name, const std::vector<info::Distance>& distances);
+        void AddDistance(std::string_view name1, std::string_view name2, int distance);
         const info::BusStop* FindStop(std::string_view name) const;
         info::BusStop* FindStop(std::string_view name);
         void AddBus(std::string_view name, const std::vector<std::string_view>& stops);
         const info::BusInfo* FindBus(std::string_view name) const;
         std::optional <BusStat> GetBusInfo(std::string_view request_name) const;
-        std::optional<StopStat> GetStopInfo(std::string_view request_name) const;
+        std::optional<info::BusInfo> GetStopInfo(std::string_view request_name) const;
         void BuildDistanceIndex();
     private:
         std::deque<info::BusStop> stops_;

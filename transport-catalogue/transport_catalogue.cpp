@@ -14,10 +14,8 @@ namespace transport_catalogue {
         stopname_to_stop_[stop_ptr->name] = stop_ptr;
     }
 
-    void TC::AddDistance(std::string_view name, const std::vector<info::Distance>& distances){
-        for (const auto& [to_name, dist] : distances) {
-            pending_distances_.push_back({ std::string(name), to_name, dist });
-        }
+    void TC::AddDistance(std::string_view name1, std::string_view name2, int distance){
+        pending_distances_.push_back({ std::string(name1), std::string(name2), distance });
     }
 
     const info::BusStop* TC::FindStop(std::string_view name) const {
@@ -37,7 +35,7 @@ namespace transport_catalogue {
     }
 
     void TC::AddBus(std::string_view name, const std::vector<std::string_view>& stop_names) {
-        buses_.push_back({ std::string(name), {} });
+        buses_.push_back({ std::string(name), {} , {}});
         info::BusInfo& bus = buses_.back();
 
         bus.stops.reserve(stop_names.size());
@@ -100,13 +98,13 @@ namespace transport_catalogue {
     }
 
 
-    std::optional<StopStat> TC::GetStopInfo(std::string_view request_name) const {
+    std::optional<info::BusInfo> TC::GetStopInfo(std::string_view request_name) const {
         const info::BusStop* stop = FindStop(request_name);
         if (!stop) {
             return std::nullopt;
         }
 
-        StopStat stat;
+        info::BusInfo stat;
         stat.name = stop->name;
         stat.buses = &stop->buses;
         return stat;
