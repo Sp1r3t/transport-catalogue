@@ -1,20 +1,20 @@
+#include "json_reader.h"
+#include "map_renderer.h"
+#include "transport_catalogue.h"
+
 #include <iostream>
-#include <string>
-
-#include "input_reader.h"
-#include "stat_reader.h"
-
-using namespace std;
 
 int main() {
-    transport_catalogue::TransportCatalogue catalogue;
+    transport_catalogue::TransportCatalogue tc;
+    MapRenderer renderer;
+    jsonreader::JsonReader reader;
 
-    {
-        InputReader reader;
-        reader.ReadBaseRequests(cin, catalogue);
-    }
+    reader.ReadData(std::cin);
 
-    ProcessStatRequests(cin, cout, catalogue);
+    reader.SetCatalogueData(tc);
+    reader.SetRendererData(renderer);
+
+    reader.OutputStatRequests(tc, renderer, std::cout);
 
     return 0;
 }
