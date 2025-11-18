@@ -3,64 +3,8 @@
 #include <set>
 
 using namespace std;
-
-MapRenderer& MapRenderer::SetWidth(double w) {
-    settings_.width = w;
-    return *this;
-}
-
-MapRenderer& MapRenderer::SetHeight(double h) {
-    settings_.height = h;
-    return *this;
-}
-
-MapRenderer& MapRenderer::SetPadding(double p) {
-    settings_.padding = p;
-    return *this;
-}
-
-MapRenderer& MapRenderer::SetLineWidth(double lw) {
-    settings_.line_width = lw;
-    return *this;
-}
-
-MapRenderer& MapRenderer::SetStopRadius(double r) {
-    settings_.stop_radius = r;
-    return *this;
-}
-
-MapRenderer& MapRenderer::SetBusLabelFontSize(int s) {
-    settings_.bus_label_font_size = s;
-    return *this;
-}
-
-MapRenderer& MapRenderer::SetBusLabelOffset(svg::Point p) {
-    settings_.bus_label_offset = p;
-    return *this;
-}
-
-MapRenderer& MapRenderer::SetStopLabelFontSize(int s) {
-    settings_.stop_label_font_size = s;
-    return *this;
-}
-
-MapRenderer& MapRenderer::SetStopLabelOffset(svg::Point p) {
-    settings_.stop_label_offset = p;
-    return *this;
-}
-
-MapRenderer& MapRenderer::SetUnderlayerWidth(double w) {
-    settings_.underlayer_width = w;
-    return *this;
-}
-
-MapRenderer& MapRenderer::SetUnderlayerColor(const svg::Color& c) {
-    settings_.underlayer_color = c;
-    return *this;
-}
-
-MapRenderer& MapRenderer::SetColorPalette(const std::vector<svg::Color>& pal) {
-    settings_.color_palette = pal;
+MapRenderer& MapRenderer::SetSettings(const RenderSettings& s) {
+    settings_ = s;
     return *this;
 }
 
@@ -87,7 +31,6 @@ svg::Document MapRenderer::RenderMap(RenderingObjects&& objects) const {
     for (const auto& [name, _] : buses_to_draw) {
         bus_names.push_back(name);
     }
-    sort(bus_names.begin(), bus_names.end());
 
     size_t color_index = 0;
 

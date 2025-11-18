@@ -1,4 +1,7 @@
 #include "transport_catalogue.h"
+#include "domain.h"
+
+#include <optional>
 
 using namespace std;
 using namespace transport_catalogue;
@@ -67,4 +70,36 @@ set<Bus*> TransportCatalogue::GetPassingBuses(string_view stop_name) const {
 
 const TransportCatalogue::BusNameToBusMap& TransportCatalogue::GetBusesToFind() const {
     return busname_to_bus_;
+}
+
+optional<BusInfo> TransportCatalogue::GetBusInfo(string_view bus_name) const { 
+    const auto* bus = FindBus(bus_name); 
+    if (!bus) return nullopt; 
+ 
+    BusInfo info; 
+    info.name = bus->name; 
+    info.num_stops = static_cast<int>(bus->route.size()); 
+ 
+    set<string> unique_stops; 
+    double geo_length = 0.0; 
+    int real_length = 0; 
+ 
+    for (size_t i = 0; i + 1 < bus->route.size(); ++i) { 
+        const auto* a = bus->route[i]; 
+        const auto* b = bus->route[i + 1]; 
+        if (!a || !b) continue; 
+ 
+        unique_stops.insert(a->name); 
+        geo_length += geo::ComputeDistance(a->coord, b->coord); 
+        real_length += GetLength(a->name, b->name); 
+    } 
+ 
+    if (!bus->route.empty()) 
+        unique_stops.insert(bus->route.back()->name); 
+ 
+    info.uniq_stops = static_cast<int>(unique_stops.size()); 
+    info.length_route = real_length; 
+    info.curvature = geo_length > 0.0 ? static_cast<double>(real_length) / geo_length : 0.0; 
+ 
+    return info; 
 }

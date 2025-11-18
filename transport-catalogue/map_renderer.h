@@ -2,6 +2,7 @@
 
 #include "svg.h"
 #include "geo.h"
+#include "domain.h"
 
 #include <cstdlib>
 #include <iostream>
@@ -99,33 +100,20 @@ public:
     MapRenderer() = default;
     explicit MapRenderer(RenderSettings settings) : settings_(std::move(settings)) {}
 
-    MapRenderer& SetWidth(double w);
-    MapRenderer& SetHeight(double h);
-    MapRenderer& SetPadding(double p);
-    MapRenderer& SetLineWidth(double lw);
-    MapRenderer& SetStopRadius(double r);
-    MapRenderer& SetBusLabelFontSize(int s);
-    MapRenderer& SetBusLabelOffset(svg::Point p);
-    MapRenderer& SetStopLabelFontSize(int s);
-    MapRenderer& SetStopLabelOffset(svg::Point p);
-    MapRenderer& SetUnderlayerWidth(double w);
-    MapRenderer& SetUnderlayerColor(const svg::Color& c);
-    MapRenderer& SetColorPalette(const std::vector<svg::Color>& pal);
-
-    void AddBusLabel(std::vector<std::unique_ptr<svg::Object>>& out, const std::string& name, const svg::Point& pos, const svg::Color& color) const;
-
+    MapRenderer& SetSettings(const RenderSettings& s);
+    svg::Document RenderMap(RenderingObjects&& objects) const;
 
     double GetWidth() const;
     double GetHeight() const;
     double GetPadding() const;
 
-    svg::Document RenderMap(RenderingObjects&& objects) const;
+private:
+    void AddBusLabel(std::vector<std::unique_ptr<svg::Object>>& out, const std::string& name, const svg::Point& pos, const svg::Color& color) const;
 
     void DrawBusRoute(const std::vector<svg::Point>& route, const svg::Color& color, std::vector<svg::Polyline>& out) const;
     void DrawBusName(const std::string& bus_name, const svg::Point& pos, const svg::Color& color, std::vector<svg::Text>& out) const;
     void DrawStopPoint(const svg::Point& pt, std::vector<svg::Circle>& out) const;
     void DrawStopName(const std::string& stop_name, const svg::Point& pos, std::vector<svg::Text>& out) const;
 
-private:
     RenderSettings settings_;
 };

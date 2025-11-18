@@ -45,9 +45,9 @@ namespace jsonreader {
             if (cmd.at("type").AsString() == "Bus") {
                 std::string name = cmd.at("name").AsString();
                 bool is_round = cmd.at("is_roundtrip").AsBool();
-                vector<const transport_catalogue::Stop*> route;
+                vector<const Stop*> route;
                 for (const auto& s : cmd.at("stops").AsArray()) {
-                    const transport_catalogue::Stop* st = tc.FindStop(s.AsString());
+                    const Stop* st = tc.FindStop(s.AsString());
                     route.push_back(st);
                 }
                 if (!is_round && route.size() > 1) {
@@ -73,144 +73,146 @@ namespace jsonreader {
         throw out_of_range("Unknown color format");
     }
 
-    void JsonReader::SetRendererData(MapRenderer& map_rend) {
+    void JsonReader::SetRendererData(MapRenderer& renderer) {
         const auto& root = document_json_.GetRoot().AsMap();
-        if (!root.count("render_settings")) return;
-        const json::Dict& rs = root.at("render_settings").AsMap();
+        const auto& s = root.at("render_settings").AsMap();
 
-        map_rend.SetWidth(rs.at("width").AsDouble())
-            .SetHeight(rs.at("height").AsDouble())
-            .SetPadding(rs.at("padding").AsDouble())
-            .SetLineWidth(rs.at("line_width").AsDouble())
-            .SetStopRadius(rs.at("stop_radius").AsDouble())
-            .SetBusLabelFontSize(rs.at("bus_label_font_size").AsInt())
-            .SetBusLabelOffset({ rs.at("bus_label_offset").AsArray()[0].AsDouble(),
-                                rs.at("bus_label_offset").AsArray()[1].AsDouble() })
-            .SetStopLabelFontSize(rs.at("stop_label_font_size").AsInt())
-            .SetStopLabelOffset({ rs.at("stop_label_offset").AsArray()[0].AsDouble(),
-                                rs.at("stop_label_offset").AsArray()[1].AsDouble() })
-            .SetUnderlayerWidth(rs.at("underlayer_width").AsDouble());
+        RenderSettings rs;
 
-        if (rs.count("underlayer_color")) {
-            map_rend.SetUnderlayerColor(GetJsonColor(rs.at("underlayer_color")));
+        rs.width = s.at("width").AsDouble();
+        rs.height = s.at("height").AsDouble();
+        rs.padding = s.at("padding").AsDouble();
+        rs.line_width = s.at("line_width").AsDouble();
+        rs.stop_radius = s.at("stop_radius").AsDouble();
+
+        rs.bus_label_font_size = s.at("bus_label_font_size").AsInt();
+        rs.bus_label_offset = {
+            s.at("bus_label_offset").AsArray()[0].AsDouble(),
+            s.at("bus_label_offset").AsArray()[1].AsDouble()
+        };
+
+        rs.stop_label_font_size = s.at("stop_label_font_size").AsInt();
+        rs.stop_label_offset = {
+            s.at("stop_label_offset").AsArray()[0].AsDouble(),
+            s.at("stop_label_offset").AsArray()[1].AsDouble()
+        };
+
+        rs.underlayer_width = s.at("underlayer_width").AsDouble();
+        rs.underlayer_color = GetJsonColor(s.at("underlayer_color"));
+
+
+        for (const auto& c : s.at("color_palette").AsArray()) {
+            rs.color_palette.push_back(GetJsonColor(c));
         }
 
-        vector<svg::Color> palette;
-        if (rs.count("color_palette")) {
-            for (const auto& c : rs.at("color_palette").AsArray()) {
-                palette.push_back(GetJsonColor(c));
-            }
-        } else if (rs.count("colors")) {
-            for (const auto& c : rs.at("colors").AsArray()) {
-                palette.push_back(GetJsonColor(c));
-            }
-        }
-        map_rend.SetColorPalette(palette);
+        renderer.SetSettings(rs);
     }
 
-    void JsonReader::OutputStatRequests(const transport_catalogue::TransportCatalogue& tc,
-                                    const MapRenderer& map_rend,
+
+json::Node ProcessMapRequest(int id, RequestHandler& rh, const MapRenderer& map_rend) {
+    auto objects_opt = rh.GetRenderingObjects();
+    std::ostringstream svg_out;
+    if (objects_opt.has_value()) {
+        map_rend.RenderMap(std::move(objects_opt.value())).Render(svg_out);
+    } else {
+        svg::Document{}.Render(svg_out);
+    }
+    json::Dict res;
+    res["map"] = json::Node(svg_out.str());
+    res["request_id"] = json::Node(id);
+    return json::Node(std::move(res));
+}
+
+json::Node ProcessStopRequest(int id, const std::string& name, RequestHandler& rh) {
+    auto stop_info_opt = rh.GetStopInfo(name);
+    if (!stop_info_opt.has_value()) {
+        return json::Node(json::Dict{
+            {"request_id", json::Node(id)},
+            {"error_message", json::Node("not found")}
+        });
+    }
+    const auto& si = stop_info_opt.value();
+    std::vector<std::string> bus_names;
+    bus_names.reserve(si.buses.size());
+    for (const auto* b : si.buses) {
+        if (b) bus_names.push_back(b->name);
+    }
+    std::sort(bus_names.begin(), bus_names.end());
+    json::Array buses_json;
+    for (auto& bn : bus_names) {
+        buses_json.push_back(json::Node(std::move(bn)));
+    }
+    return json::Node(json::Dict{
+        {"buses", json::Node(std::move(buses_json))},
+        {"request_id", json::Node(id)}
+    });
+}
+
+json::Node ProcessBusRequest(int id, const std::string& name, const transport_catalogue::TransportCatalogue& tc) {
+    auto bus_info_opt = tc.GetBusInfo(name);
+    if (!bus_info_opt.has_value()) {
+        return json::Node(json::Dict{
+            {"request_id", json::Node(id)},
+            {"error_message", json::Node("not found")}
+        });
+    }
+
+    const auto& bi = bus_info_opt.value();
+    return json::Node(json::Dict{
+        {"stop_count", json::Node(bi.num_stops)},
+        {"unique_stop_count", json::Node(bi.uniq_stops)},
+        {"route_length", json::Node(bi.length_route)},
+        {"curvature", json::Node(bi.curvature)},
+        {"request_id", json::Node(id)}
+    });
+}
+
+
+json::Node ProcessUnknownRequest(int id) {
+    return json::Node(json::Dict{
+        {"request_id", json::Node(id)},
+        {"error_message", json::Node("not found")}
+    });
+}
+
+void JsonReader::OutputStatRequests(const transport_catalogue::TransportCatalogue& tc, 
+                                    const MapRenderer& map_rend, 
                                     std::ostream& output) {
-        const auto& root = document_json_.GetRoot().AsMap();
+    const auto& root = document_json_.GetRoot().AsMap();
+    RequestHandler rh(tc, map_rend);
 
-        RequestHandler rh(tc, map_rend);
-
-        if (!root.count("stat_requests")) {
-            auto objects_opt = rh.GetRenderingObjects();
-            if (objects_opt.has_value()) {
-                map_rend.RenderMap(std::move(objects_opt.value())).Render(output);
-            } else {
-                svg::Document{}.Render(output);
-            }
-            return;
+    if (!root.count("stat_requests")) {
+        auto objects_opt = rh.GetRenderingObjects();
+        if (objects_opt.has_value()) {
+            map_rend.RenderMap(std::move(objects_opt.value())).Render(output);
+        } else {
+            svg::Document{}.Render(output);
         }
-
-        const json::Array& arr = root.at("stat_requests").AsArray();
-        json::Array results;
-        results.reserve(arr.size());
-
-        for (const auto& req_node : arr) {
-            const json::Dict& cmd = req_node.AsMap();
-            const int id = cmd.at("id").AsInt();
-            const string type = cmd.at("type").AsString();
-
-            if (type == "Map") {
-                auto objects_opt = rh.GetRenderingObjects();
-                ostringstream svg_out;
-                if (objects_opt.has_value()) {
-                    map_rend.RenderMap(std::move(objects_opt.value())).Render(svg_out);
-                } else {
-                    svg::Document{}.Render(svg_out);
-                }
-                std::string svg_str = svg_out.str();
-                json::Dict res;
-                res["map"] = json::Node(std::move(svg_str));
-                res["request_id"] = json::Node(id);
-                results.push_back(json::Node(std::move(res)));
-                continue;
-            }
-
-            if (type == "Stop") {
-                const string name = cmd.at("name").AsString();
-                auto stop_info_opt = rh.GetStopInfo(name);
-                if (!stop_info_opt.has_value()) {
-                    json::Dict err;
-                    err["request_id"] = json::Node(id);
-                    std::string em = "not found";
-                    err["error_message"] = json::Node(std::move(em));
-                    results.push_back(json::Node(std::move(err)));
-                } else {
-                    const auto& si = stop_info_opt.value();
-                    vector<string> bus_names;
-                    bus_names.reserve(si.buses.size());
-                    for (const auto* b : si.buses) {
-                        if (b) bus_names.push_back(b->name);
-                    }
-                    sort(bus_names.begin(), bus_names.end());
-                    json::Array buses_json;
-                    buses_json.reserve(bus_names.size());
-                    for (auto& bn : bus_names) {
-                        buses_json.push_back(json::Node(std::move(bn)));
-                    }
-                    json::Dict res;
-                    res["buses"] = json::Node(std::move(buses_json));
-                    res["request_id"] = json::Node(id);
-                    results.push_back(json::Node(std::move(res)));
-                }
-                continue;
-            }
-
-            if (type == "Bus") {
-                const string name = cmd.at("name").AsString();
-                auto bus_info_opt = rh.GetBusInfo(name);
-                if (!bus_info_opt.has_value()) {
-                    json::Dict err;
-                    err["request_id"] = json::Node(id);
-                    std::string em = "not found";
-                    err["error_message"] = json::Node(std::move(em));
-                    results.push_back(json::Node(std::move(err)));
-                } else {
-                    const auto& bi = bus_info_opt.value();
-                    json::Dict res;
-                    res["stop_count"] = json::Node(bi.num_stops);
-                    res["unique_stop_count"] = json::Node(bi.uniq_stops);
-                    res["route_length"] = json::Node(bi.length_route);
-                    res["curvature"] = json::Node(bi.curvature);
-                    res["request_id"] = json::Node(id);
-                    results.push_back(json::Node(std::move(res)));
-                }
-                continue;
-            }
-
-            json::Dict err;
-            err["request_id"] = json::Node(id);
-            std::string em = "not found";
-            err["error_message"] = json::Node(std::move(em));
-            results.push_back(json::Node(std::move(err)));
-        }
-
-        json::Document out_doc(json::Node(std::move(results)));
-        json::Print(out_doc, output);
+        return;
     }
+
+    const json::Array& arr = root.at("stat_requests").AsArray();
+    json::Array results;
+    results.reserve(arr.size());
+
+    for (const auto& req_node : arr) {
+        const json::Dict& cmd = req_node.AsMap();
+        const int id = cmd.at("id").AsInt();
+        const std::string type = cmd.at("type").AsString();
+
+        if (type == "Map") {
+            results.push_back(ProcessMapRequest(id, rh, map_rend));
+        } else if (type == "Stop") {
+            results.push_back(ProcessStopRequest(id, cmd.at("name").AsString(), rh));
+        } else if (type == "Bus") {
+            results.push_back(ProcessBusRequest(id, cmd.at("name").AsString(), tc));
+        } else {
+            results.push_back(ProcessUnknownRequest(id));
+        }
+    }
+
+    json::Document out_doc(json::Node(std::move(results)));
+    json::Print(out_doc, output);
+}
 
 }

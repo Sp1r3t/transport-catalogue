@@ -1,6 +1,7 @@
 #pragma once
 
 #include "geo.h"
+#include "domain.h"
 
 #include <string>
 #include <string_view>
@@ -8,25 +9,12 @@
 #include <vector>
 #include <unordered_map>
 #include <map>
+#include <optional>
 #include <set>
 
-namespace info {
-    struct Stop {
-        std::string name;
-        geo::Coordinates coord;
-    };
-
-    struct Bus {
-        std::string name;
-        std::vector<const Stop*> route;
-        bool is_round_trip = false;
-    };
-}
+struct BusInfo;
 
 namespace transport_catalogue {
-
-    using Stop = info::Stop;
-    using Bus = info::Bus;
 
     struct StringViewHasher {
         using is_transparent = void;
@@ -65,6 +53,7 @@ namespace transport_catalogue {
         using BusNameToBusMap = std::unordered_map<std::string, const Bus*, StringViewHasher>;
         const BusNameToBusMap& GetBusesToFind() const;
 
+        std::optional<BusInfo> GetBusInfo(std::string_view bus_name) const;
     private:
         std::deque<Stop> stops_;
         std::deque<Bus> buses_;

@@ -27,39 +27,6 @@ optional<StopInfo> RequestHandler::GetStopInfo(string_view stop_name) const {
     return info;
 }
 
-optional<BusInfo> RequestHandler::GetBusInfo(string_view bus_name) const {
-    const auto* bus = tc_.FindBus(bus_name);
-    if (!bus) return nullopt;
-
-    BusInfo info;
-    info.name = bus->name;
-    info.num_stops = static_cast<int>(bus->route.size());
-
-    set<string> unique_stops;
-    double geo_length = 0.0;
-    int real_length = 0;
-
-    for (size_t i = 0; i + 1 < bus->route.size(); ++i) {
-        const auto* a = bus->route[i];
-        const auto* b = bus->route[i + 1];
-        if (!a || !b) continue;
-
-        unique_stops.insert(a->name);
-        geo_length += geo::ComputeDistance(a->coord, b->coord);
-        real_length += tc_.GetLength(a->name, b->name);
-    }
-
-    if (!bus->route.empty())
-        unique_stops.insert(bus->route.back()->name);
-
-    info.uniq_stops = static_cast<int>(unique_stops.size());
-    info.length_route = real_length;
-    info.curvature =
-        geo_length > 0.0 ? static_cast<double>(real_length) / geo_length : 0.0;
-
-    return info;
-}
-
 RequestHandler::RenderingObjects RequestHandler::GetRenderingObjects() const {
     unordered_set<string> used_stop_names;
     for (const auto& bus : tc_.GetBuses()) {

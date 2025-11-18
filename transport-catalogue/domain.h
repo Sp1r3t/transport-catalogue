@@ -1,12 +1,29 @@
 #pragma once
+#include "geo.h"
 
-/*
- * В этом файле вы можете разместить классы/структуры, которые являются частью предметной области (domain)
- * вашего приложения и не зависят от транспортного справочника. Например Автобусные маршруты и Остановки. 
- *
- * Их можно было бы разместить и в transport_catalogue.h, однако вынесение их в отдельный
- * заголовочный файл может оказаться полезным, когда дело дойдёт до визуализации карты маршрутов:
- * визуализатор карты (map_renderer) можно будет сделать независящим от транспортного справочника.
- *
- * Если структура вашего приложения не позволяет так сделать, просто оставьте этот файл пустым.
- */
+#include <string>
+#include <vector>
+
+struct Stop {
+    std::string name;
+    geo::Coordinates coord;
+};
+
+struct Bus {
+    std::string name;
+    std::vector<const Stop*> route;
+    bool is_round_trip = false;
+};
+
+struct StopInfo {
+    std::string name;
+    std::vector<const Bus*> buses;
+};
+
+struct BusInfo {
+    std::string name;
+    int num_stops = 0;
+    int uniq_stops = 0;
+    int length_route = 0;
+    double curvature = 0.0;
+};
