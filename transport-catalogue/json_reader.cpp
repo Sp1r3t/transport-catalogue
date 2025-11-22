@@ -1,4 +1,5 @@
 #include "json_reader.h"
+#include "json_builder.h"
 
 #include <sstream>
 #include <algorithm>
@@ -75,6 +76,7 @@ namespace jsonreader {
 
     void JsonReader::SetRendererData(MapRenderer& renderer) {
         const auto& root = document_json_.GetRoot().AsMap();
+        if (!root.count("render_settings")) return;
         const auto& s = root.at("render_settings").AsMap();
 
         RenderSettings rs;
@@ -109,110 +111,117 @@ namespace jsonreader {
     }
 
 
-json::Node ProcessMapRequest(int id, RequestHandler& rh, const MapRenderer& map_rend) {
-    auto objects_opt = rh.GetRenderingObjects();
-    std::ostringstream svg_out;
-    if (objects_opt.has_value()) {
-        map_rend.RenderMap(std::move(objects_opt.value())).Render(svg_out);
-    } else {
-        svg::Document{}.Render(svg_out);
-    }
-    json::Dict res;
-    res["map"] = json::Node(svg_out.str());
-    res["request_id"] = json::Node(id);
-    return json::Node(std::move(res));
-}
-
-json::Node ProcessStopRequest(int id, const std::string& name, RequestHandler& rh) {
-    auto stop_info_opt = rh.GetStopInfo(name);
-    if (!stop_info_opt.has_value()) {
-        return json::Node(json::Dict{
-            {"request_id", json::Node(id)},
-            {"error_message", json::Node("not found")}
-        });
-    }
-    const auto& si = stop_info_opt.value();
-    std::vector<std::string> bus_names;
-    bus_names.reserve(si.buses.size());
-    for (const auto* b : si.buses) {
-        if (b) bus_names.push_back(b->name);
-    }
-    std::sort(bus_names.begin(), bus_names.end());
-    json::Array buses_json;
-    for (auto& bn : bus_names) {
-        buses_json.push_back(json::Node(std::move(bn)));
-    }
-    return json::Node(json::Dict{
-        {"buses", json::Node(std::move(buses_json))},
-        {"request_id", json::Node(id)}
-    });
-}
-
-json::Node ProcessBusRequest(int id, const std::string& name, const transport_catalogue::TransportCatalogue& tc) {
-    auto bus_info_opt = tc.GetBusInfo(name);
-    if (!bus_info_opt.has_value()) {
-        return json::Node(json::Dict{
-            {"request_id", json::Node(id)},
-            {"error_message", json::Node("not found")}
-        });
-    }
-
-    const auto& bi = bus_info_opt.value();
-    return json::Node(json::Dict{
-        {"stop_count", json::Node(bi.num_stops)},
-        {"unique_stop_count", json::Node(bi.uniq_stops)},
-        {"route_length", json::Node(bi.length_route)},
-        {"curvature", json::Node(bi.curvature)},
-        {"request_id", json::Node(id)}
-    });
-}
-
-
-json::Node ProcessUnknownRequest(int id) {
-    return json::Node(json::Dict{
-        {"request_id", json::Node(id)},
-        {"error_message", json::Node("not found")}
-    });
-}
-
-void JsonReader::OutputStatRequests(const transport_catalogue::TransportCatalogue& tc, 
-                                    const MapRenderer& map_rend, 
-                                    std::ostream& output) {
-    const auto& root = document_json_.GetRoot().AsMap();
-    RequestHandler rh(tc, map_rend);
-
-    if (!root.count("stat_requests")) {
+    json::Node ProcessMapRequest(int id, RequestHandler& rh, const MapRenderer& map_rend) {
         auto objects_opt = rh.GetRenderingObjects();
+        std::ostringstream svg_out;
         if (objects_opt.has_value()) {
-            map_rend.RenderMap(std::move(objects_opt.value())).Render(output);
+            map_rend.RenderMap(std::move(objects_opt.value())).Render(svg_out);
         } else {
-            svg::Document{}.Render(output);
+            svg::Document{}.Render(svg_out);
         }
-        return;
+        
+        return json::Builder{}
+            .StartDict()
+                .Key("map").Value(svg_out.str())
+                .Key("request_id").Value(id)
+            .EndDict()
+            .Build();
     }
 
-    const json::Array& arr = root.at("stat_requests").AsArray();
-    json::Array results;
-    results.reserve(arr.size());
-
-    for (const auto& req_node : arr) {
-        const json::Dict& cmd = req_node.AsMap();
-        const int id = cmd.at("id").AsInt();
-        const std::string type = cmd.at("type").AsString();
-
-        if (type == "Map") {
-            results.push_back(ProcessMapRequest(id, rh, map_rend));
-        } else if (type == "Stop") {
-            results.push_back(ProcessStopRequest(id, cmd.at("name").AsString(), rh));
-        } else if (type == "Bus") {
-            results.push_back(ProcessBusRequest(id, cmd.at("name").AsString(), tc));
-        } else {
-            results.push_back(ProcessUnknownRequest(id));
+    json::Node ProcessStopRequest(int id, const std::string& name, RequestHandler& rh) {
+        auto stop_info_opt = rh.GetStopInfo(name);
+        if (!stop_info_opt.has_value()) {
+            return json::Builder{}
+                .StartDict()
+                    .Key("request_id").Value(id)
+                    .Key("error_message").Value("not found")
+                .EndDict()
+                .Build();
         }
+        const auto& si = stop_info_opt.value();
+        std::vector<std::string> bus_names;
+        bus_names.reserve(si.buses.size());
+        for (const auto* b : si.buses) {
+            if (b) bus_names.push_back(b->name);
+        }
+        std::sort(bus_names.begin(), bus_names.end());
+        
+        json::Builder builder;
+        builder.StartDict()
+               .Key("buses").StartArray();
+        for (auto& bn : bus_names) {
+            builder.Value(std::move(bn));
+        }
+        return builder.EndArray()
+                      .Key("request_id").Value(id)
+                      .EndDict()
+                      .Build();
     }
 
-    json::Document out_doc(json::Node(std::move(results)));
-    json::Print(out_doc, output);
-}
+    json::Node ProcessBusRequest(int id, const std::string& name, const transport_catalogue::TransportCatalogue& tc) {
+        auto bus_info_opt = tc.GetBusInfo(name);
+        if (!bus_info_opt.has_value()) {
+            return json::Builder{}
+                .StartDict()
+                    .Key("request_id").Value(id)
+                    .Key("error_message").Value("not found")
+                .EndDict()
+                .Build();
+        }
+
+        const auto& bi = bus_info_opt.value();
+        return json::Builder{}
+            .StartDict()
+                .Key("curvature").Value(bi.curvature)
+                .Key("request_id").Value(id)
+                .Key("route_length").Value(bi.length_route)
+                .Key("stop_count").Value(bi.num_stops)
+                .Key("unique_stop_count").Value(bi.uniq_stops)
+            .EndDict()
+            .Build();
+    }
+
+
+    json::Node ProcessUnknownRequest(int id) {
+        return json::Builder{}
+            .StartDict()
+                .Key("request_id").Value(id)
+                .Key("error_message").Value("not found")
+            .EndDict()
+            .Build();
+    }
+
+    void JsonReader::OutputStatRequests(const transport_catalogue::TransportCatalogue& tc, 
+                                        const MapRenderer& map_rend, 
+                                        std::ostream& output) {
+        const auto& root = document_json_.GetRoot().AsMap();
+        RequestHandler rh(tc, map_rend);
+
+        if (!root.count("stat_requests")) {
+             return;
+        }
+
+        const json::Array& arr = root.at("stat_requests").AsArray();
+        json::Array results;
+        results.reserve(arr.size());
+
+        for (const auto& req_node : arr) {
+            const json::Dict& cmd = req_node.AsMap();
+            const int id = cmd.at("id").AsInt();
+            const std::string type = cmd.at("type").AsString();
+
+            if (type == "Map") {
+                results.push_back(ProcessMapRequest(id, rh, map_rend));
+            } else if (type == "Stop") {
+                results.push_back(ProcessStopRequest(id, cmd.at("name").AsString(), rh));
+            } else if (type == "Bus") {
+                results.push_back(ProcessBusRequest(id, cmd.at("name").AsString(), tc));
+            } else {
+                results.push_back(ProcessUnknownRequest(id));
+            }
+        }
+
+        json::Print(json::Document(json::Node(std::move(results))), output);
+    }
 
 }
