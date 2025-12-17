@@ -1,6 +1,7 @@
 #include "request_handler.h"
 #include "map_renderer.h"
 #include "transport_catalogue.h"
+#include "json_builder.h"
 
 #include <set>
 #include <algorithm>
@@ -75,4 +76,9 @@ RequestHandler::RenderingObjects RequestHandler::GetRenderingObjects() const {
     }
 
     return make_optional(make_pair(move(stops_to_draw), move(buses_to_draw)));
+}
+
+std::optional<json::Node> RequestHandler::GetRoute(const std::string& from, const std::string& to, int id) const {
+    if (!router_) return std::nullopt;
+    return router_->FindRoute(from, to, id);
 }

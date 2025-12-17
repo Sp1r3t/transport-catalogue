@@ -1,5 +1,6 @@
 #include "json_reader.h"
 #include "json_builder.h"
+#include "transport_router.h"
 
 #include <sstream>
 #include <algorithm>
@@ -197,6 +198,20 @@ namespace jsonreader {
         const auto& root = document_json_.GetRoot().AsMap();
         RequestHandler rh(tc, map_rend);
 
+        // prepare routing settings and router
+        transport_router::RoutingSettings routing_settings;
+        if (root.count("routing_settings")) {
+            const auto& rs = root.at("routing_settings").AsMap();
+            if (rs.count("bus_wait_time")) {
+                routing_settings.bus_wait_time = rs.at("bus_wait_time").AsInt();
+            }
+            if (rs.count("bus_velocity")) {
+                routing_settings.bus_velocity = rs.at("bus_velocity").AsDouble();
+            }
+        }
+
+        transport_router::TransportRouter router(tc, routing_settings);
+
         if (!root.count("stat_requests")) {
              return;
         }
@@ -216,6 +231,16 @@ namespace jsonreader {
                 results.push_back(ProcessStopRequest(id, cmd.at("name").AsString(), rh));
             } else if (type == "Bus") {
                 results.push_back(ProcessBusRequest(id, cmd.at("name").AsString(), tc));
+            } else if (type == "Route") {
+                // read from/to and ask transport router
+                const std::string from = cmd.at("from").AsString();
+                const std::string to = cmd.at("to").AsString();
+                auto route_node_opt = router.FindRoute(from, to, id);
+                if (route_node_opt.has_value()) {
+                    results.push_back(route_node_opt.value());
+                } else {
+                    results.push_back(ProcessUnknownRequest(id));
+                }
             } else {
                 results.push_back(ProcessUnknownRequest(id));
             }
