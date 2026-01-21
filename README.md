@@ -6,7 +6,7 @@
 
 ## Examples
 
-![Screenshot](images/SVG Output.png)
+![Screenshot](https://github.com/Sp1r3t/transport-catalogue/blob/main/images/SVG%20Output.png)
 
 ## Core Features
 
