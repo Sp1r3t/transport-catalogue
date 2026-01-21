@@ -143,6 +143,8 @@ You can return the json file, or you can return the svg markup language to build
 
 ![Create SVG Output](images/SVG%20Output.png)
 
+---
+
 ## Core Features
 
 ### 1. Transport Database
