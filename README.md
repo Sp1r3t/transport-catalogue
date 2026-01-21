@@ -136,6 +136,8 @@
       ]
   }
 ```
+---
+
 ### Output
 You can return the json file, or you can return the svg markup language to build the image:
 
